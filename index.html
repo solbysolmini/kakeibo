@@ -15,11 +15,10 @@
         }
         .font-numeric { font-family: 'Quicksand', sans-serif; }
         
-        /* 月ごとのテーマカラー */
-        .theme-1, .theme-2, .theme-12 { --theme-main: #6b82a3; --theme-sub: #eef2f7; --theme-light: #f0f4f8; } /* 冬 */
-        .theme-3, .theme-4, .theme-5 { --theme-main: #8da38d; --theme-sub: #f0f4f0; --theme-light: #f2f7f2; } /* 春 */
-        .theme-6, .theme-7, .theme-8 { --theme-main: #a3956b; --theme-sub: #f7f5ee; --theme-light: #f9f7f2; } /* 夏 */
-        .theme-9, .theme-10, .theme-11 { --theme-main: #a37d6b; --theme-sub: #f7f1ee; --theme-light: #f9f3f0; } /* 秋 */
+        .theme-1, .theme-2, .theme-12 { --theme-main: #6b82a3; --theme-sub: #eef2f7; --theme-light: #f0f4f8; }
+        .theme-3, .theme-4, .theme-5 { --theme-main: #8da38d; --theme-sub: #f0f4f0; --theme-light: #f2f7f2; }
+        .theme-6, .theme-7, .theme-8 { --theme-main: #a3956b; --theme-sub: #f7f5ee; --theme-light: #f9f7f2; }
+        .theme-9, .theme-10, .theme-11 { --theme-main: #a37d6b; --theme-sub: #f7f1ee; --theme-light: #f9f3f0; }
 
         .header-bg {
             background-color: var(--theme-main);
@@ -33,7 +32,6 @@
         .accent-text { color: var(--theme-main); }
         .accent-bg { background-color: var(--theme-main); }
         
-        /* メッセージアニメーション */
         @keyframes fadeInOut {
             0% { opacity: 0; transform: translateY(15px); }
             10% { opacity: 1; transform: translateY(0); }
@@ -51,12 +49,8 @@
 
     <div id="mainApp" class="w-full max-w-md bg-white min-h-screen sm:min-h-0 sm:rounded-[2.5rem] shadow-2xl overflow-hidden border border-[#eeebe8] theme-1 relative">
         
-        <!-- 応援メッセージのポップアップ表示場所 -->
-        <div id="messageOverlay" class="fixed inset-0 pointer-events-none flex items-center justify-center z-50 px-6 text-center">
-            <!-- ここにメッセージが差し込まれる -->
-        </div>
+        <div id="messageOverlay" class="fixed inset-0 pointer-events-none flex items-center justify-center z-50 px-6 text-center"></div>
 
-        <!-- ヘッダー -->
         <div class="header-bg p-8 text-white relative">
             <div class="flex justify-between items-center mb-6">
                 <div class="flex items-center gap-2">
@@ -85,7 +79,6 @@
             </div>
         </div>
 
-        <!-- 入力エリア -->
         <div class="p-7">
             <div class="flex bg-[#f4f1ed] p-1.5 rounded-2xl mb-8">
                 <button id="mode-expense" onclick="changeMode('expense')" class="flex-1 py-3 text-xs font-bold rounded-xl bg-white shadow-sm transition-all" style="color: #b68d8d;">支出をつける</button>
@@ -119,7 +112,6 @@
             </div>
         </div>
 
-        <!-- 履歴 -->
         <div class="px-7 pb-12">
             <h2 class="text-[10px] font-bold text-[#b5ada5] uppercase tracking-[0.2em] mb-5 pl-1 font-numeric italic">Daily Records</h2>
             <ul id="historyList" class="space-y-3"></ul>
@@ -127,14 +119,18 @@
     </div>
 
     <script>
-        let kakeiboData = JSON.parse(localStorage.getItem('nordicKakeiboV11')) || {};
-        let categories = JSON.parse(localStorage.getItem('nordicCategoriesV11')) || {
+        // バージョン管理をして以前のバグデータを回避
+        const STORAGE_KEY_DATA = 'nordicKakeiboV12_Data';
+        const STORAGE_KEY_CATS = 'nordicKakeiboV12_Cats';
+
+        let kakeiboData = JSON.parse(localStorage.getItem(STORAGE_KEY_DATA)) || {};
+        let categories = JSON.parse(localStorage.getItem(STORAGE_KEY_CATS)) || {
             income: ["給料", "ボーナス", "その他"],
             expense: ["食費", "日用品", "光熱費", "カフェ", "美容", "医療", "交際費"]
         };
         
         let currentMode = 'expense';
-        let selectedCategory = "";
+        let selectedCategory = categories.expense[0] || "";
         let isEditMode = false;
 
         const seasonIcons = { 1: "❄️", 2: "❄️", 3: "🌱", 4: "🌸", 5: "🌿", 6: "☀️", 7: "🏖️", 8: "🌻", 9: "🍂", 10: "🎃", 11: "🍁", 12: "🎄" };
@@ -167,16 +163,11 @@
         function showMessage() {
             const container = document.getElementById('messageOverlay');
             container.innerHTML = '';
-            
             const msgBox = document.createElement('div');
             msgBox.className = "msg-pop bg-white border border-[#eeebe8] px-8 py-6 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] text-sm font-bold text-[#3e3a36]";
             msgBox.innerText = encouragementMessages[Math.floor(Math.random() * encouragementMessages.length)];
-            
             container.appendChild(msgBox);
-            
-            setTimeout(() => {
-                if (msgBox.parentNode) msgBox.parentNode.removeChild(msgBox);
-            }, 5000);
+            setTimeout(() => { if (msgBox.parentNode) msgBox.parentNode.removeChild(msgBox); }, 5000);
         }
 
         function updateThemeAndData() {
@@ -191,7 +182,17 @@
 
         function changeMode(m) {
             currentMode = m;
-            selectedCategory = "";
+            isEditMode = false; // モード切り替え時は編集を閉じる
+            document.getElementById('editBtn').innerText = "項目を編集";
+            document.getElementById('addCategoryArea').style.display = 'none';
+            
+            // カテゴリーの初期選択を安全に行う
+            if (categories[currentMode] && categories[currentMode].length > 0) {
+                selectedCategory = categories[currentMode][0];
+            } else {
+                selectedCategory = "";
+            }
+
             const isExp = m === 'expense';
             document.getElementById('mode-expense').className = isExp ? "flex-1 py-3 text-xs font-bold rounded-xl bg-white shadow-sm" : "flex-1 py-3 text-xs font-bold rounded-xl text-[#a89e94]";
             document.getElementById('mode-income').className = !isExp ? "flex-1 py-3 text-xs font-bold rounded-xl bg-white shadow-sm" : "flex-1 py-3 text-xs font-bold rounded-xl text-[#a89e94]";
@@ -203,19 +204,32 @@
         function renderCategories() {
             const grid = document.getElementById('categoryGrid');
             grid.innerHTML = '';
-            categories[currentMode].forEach((cat, index) => {
+            const currentList = categories[currentMode] || [];
+            
+            if (currentList.length === 0 && !isEditMode) {
+                grid.innerHTML = '<p class="col-span-3 text-[10px] text-gray-400 text-center py-4">項目がありません。「項目を編集」から追加してください</p>';
+                return;
+            }
+
+            currentList.forEach((cat, index) => {
                 const btn = document.createElement('button');
-                btn.className = `category-btn p-3 text-[11px] font-bold rounded-2xl bg-[#fdfaf8] border-2 border-[#e5e0da] transition-all ${selectedCategory === cat ? 'active' : ''}`;
-                btn.innerText = cat;
+                btn.className = `category-btn p-3 text-[11px] font-bold rounded-2xl bg-[#fdfaf8] border-2 border-[#e5e0da] transition-all flex items-center justify-center gap-1 ${selectedCategory === cat && !isEditMode ? 'active' : ''}`;
+                
                 if (isEditMode) {
-                    btn.innerHTML += ' <span class="text-[8px] opacity-30">×</span>';
-                    btn.onclick = () => { categories[currentMode].splice(index, 1); syncCategories(); };
+                    btn.innerHTML = `<span>${cat}</span><span class="text-[14px] text-red-400 ml-1">×</span>`;
+                    btn.onclick = (e) => {
+                        e.stopPropagation();
+                        removeCategory(index);
+                    };
                 } else {
-                    btn.onclick = () => { selectedCategory = cat; renderCategories(); };
+                    btn.innerText = cat;
+                    btn.onclick = () => {
+                        selectedCategory = cat;
+                        renderCategories();
+                    };
                 }
                 grid.appendChild(btn);
             });
-            if (!selectedCategory && !isEditMode) selectedCategory = categories[currentMode][0];
         }
 
         function toggleEditMode() {
@@ -226,17 +240,35 @@
         }
 
         function addNewCategory() {
-            const name = document.getElementById('newCatInput').value.trim();
-            if (name && !categories[currentMode].includes(name)) {
-                categories[currentMode].push(name);
-                syncCategories();
-                document.getElementById('newCatInput').value = '';
+            const input = document.getElementById('newCatInput');
+            const name = input.value.trim();
+            if (name) {
+                if (!categories[currentMode]) categories[currentMode] = [];
+                if (!categories[currentMode].includes(name)) {
+                    categories[currentMode].push(name);
+                    saveCategories();
+                    input.value = '';
+                    renderCategories();
+                }
             }
         }
 
-        function syncCategories() {
-            localStorage.setItem('nordicCategoriesV11', JSON.stringify(categories));
-            renderCategories();
+        function removeCategory(index) {
+            if (categories[currentMode]) {
+                categories[currentMode].splice(index, 1);
+                saveCategories();
+                // 選択中のが消えたら先頭にする
+                if (categories[currentMode].length > 0) {
+                    selectedCategory = categories[currentMode][0];
+                } else {
+                    selectedCategory = "";
+                }
+                renderCategories();
+            }
+        }
+
+        function saveCategories() {
+            localStorage.setItem(STORAGE_KEY_CATS, JSON.stringify(categories));
         }
 
         function loadData() {
@@ -254,13 +286,13 @@
                 li.innerHTML = `
                     <div class="flex items-center gap-3">
                         <div class="w-1 h-5 rounded-full ${isInc ? 'bg-[#8da399]' : 'bg-[#b68d8d]'}"></div>
-                        <span class="text-xs font-bold">${item.name}</span>
+                        <span class="text-xs font-bold text-[#3e3a36]">${item.name}</span>
                     </div>
                     <div class="flex items-center gap-4">
                         <span class="text-sm font-numeric font-bold ${isInc ? 'text-[#6b7e73]' : 'text-[#b68d8d]'}">
                             ${isInc ? '+' : '-'}¥${item.price.toLocaleString()}
                         </span>
-                        <button onclick="removeItem(${index})" class="text-[#e5e0da] hover:text-red-300 transition-colors">×</button>
+                        <button onclick="removeItem(${index})" class="text-[#e5e0da] hover:text-red-400 transition-colors px-2 text-lg">×</button>
                     </div>`;
                 list.appendChild(li);
             });
@@ -272,13 +304,21 @@
         }
 
         function addItem() {
+            if (isEditMode) return; // 編集モード中は保存不可
+            
             const monthKey = document.getElementById('monthSelector').value;
             const amountInput = document.getElementById('amountInput');
             const amount = parseInt(amountInput.value);
-            if (!amount || amount <= 0 || !selectedCategory) return;
+            
+            if (!amount || amount <= 0) return;
+            if (!selectedCategory) {
+                alert("カテゴリーを選択してください");
+                return;
+            }
+            
             if (!kakeiboData[monthKey]) kakeiboData[monthKey] = [];
             kakeiboData[monthKey].unshift({ id: Date.now(), type: currentMode, name: selectedCategory, price: amount });
-            localStorage.setItem('nordicKakeiboV11', JSON.stringify(kakeiboData));
+            localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(kakeiboData));
             amountInput.value = '';
             
             showMessage();
@@ -288,7 +328,7 @@
         function removeItem(index) {
             const monthKey = document.getElementById('monthSelector').value;
             kakeiboData[monthKey].splice(index, 1);
-            localStorage.setItem('nordicKakeiboV11', JSON.stringify(kakeiboData));
+            localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(kakeiboData));
             loadData();
         }
 
@@ -296,5 +336,4 @@
     </script>
 </body>
 </html>
-
 
