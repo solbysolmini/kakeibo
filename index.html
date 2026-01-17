@@ -1,6 +1,300 @@
-<!doctype html>
-<html>
-<body>
-hello
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>四季の家計簿 2026</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@400;700&family=Quicksand:wght@600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f9f7f5;
+            font-family: 'Zen Maru Gothic', sans-serif;
+            color: #3e3a36;
+            transition: background-color 0.5s ease;
+        }
+        .font-numeric { font-family: 'Quicksand', sans-serif; }
+        
+        /* 月ごとのテーマカラー */
+        .theme-1, .theme-2, .theme-12 { --theme-main: #6b82a3; --theme-sub: #eef2f7; --theme-light: #f0f4f8; } /* 冬 */
+        .theme-3, .theme-4, .theme-5 { --theme-main: #8da38d; --theme-sub: #f0f4f0; --theme-light: #f2f7f2; } /* 春 */
+        .theme-6, .theme-7, .theme-8 { --theme-main: #a3956b; --theme-sub: #f7f5ee; --theme-light: #f9f7f2; } /* 夏 */
+        .theme-9, .theme-10, .theme-11 { --theme-main: #a37d6b; --theme-sub: #f7f1ee; --theme-light: #f9f3f0; } /* 秋 */
+
+        .header-bg {
+            background-color: var(--theme-main);
+            transition: background-color 0.5s ease;
+        }
+        .category-btn.active {
+            border-color: var(--theme-main);
+            background-color: var(--theme-light);
+            color: var(--theme-main);
+        }
+        .accent-text { color: var(--theme-main); }
+        .accent-bg { background-color: var(--theme-main); }
+        
+        /* メッセージアニメーション */
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(15px); }
+            10% { opacity: 1; transform: translateY(0); }
+            90% { opacity: 1; transform: translateY(0); }
+            100% { opacity: 0; transform: translateY(-15px); }
+        }
+        .msg-pop {
+            animation: fadeInOut 5s forwards;
+            max-width: 85%;
+            line-height: 1.6;
+        }
+    </style>
+</head>
+<body class="p-2 sm:p-6 flex flex-col items-center">
+
+    <div id="mainApp" class="w-full max-w-md bg-white min-h-screen sm:min-h-0 sm:rounded-[2.5rem] shadow-2xl overflow-hidden border border-[#eeebe8] theme-1 relative">
+        
+        <!-- 応援メッセージのポップアップ表示場所 -->
+        <div id="messageOverlay" class="fixed inset-0 pointer-events-none flex items-center justify-center z-50 px-6 text-center">
+            <!-- ここにメッセージが差し込まれる -->
+        </div>
+
+        <!-- ヘッダー -->
+        <div class="header-bg p-8 text-white relative">
+            <div class="flex justify-between items-center mb-6">
+                <div class="flex items-center gap-2">
+                    <span id="seasonIcon" class="text-xl">❄️</span>
+                    <h1 class="text-xs font-bold tracking-widest uppercase italic">Nordic Life Log</h1>
+                </div>
+                <select id="monthSelector" onchange="updateThemeAndData()" class="bg-white/10 text-white border border-white/20 rounded-full px-3 py-1 text-[11px] font-bold outline-none cursor-pointer">
+                </select>
+            </div>
+            
+            <div class="text-center">
+                <p id="monthLabel" class="text-[10px] text-white/70 font-bold tracking-[0.3em] mb-1">2026.01</p>
+                <p class="text-[11px] text-white/60 mb-1">今月のやりくり残高</p>
+                <p id="balanceAmount" class="text-5xl font-numeric font-bold tracking-tight">¥0</p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mt-8">
+                <div class="bg-black/10 p-3 rounded-2xl backdrop-blur-sm border border-white/5">
+                    <p class="text-[9px] text-white/70 font-bold mb-1">Income</p>
+                    <p id="totalIn" class="text-base font-numeric font-bold">¥0</p>
+                </div>
+                <div class="bg-black/10 p-3 rounded-2xl backdrop-blur-sm border border-white/5">
+                    <p class="text-[9px] text-white/70 font-bold mb-1">Expense</p>
+                    <p id="totalOut" class="text-base font-numeric font-bold">¥0</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 入力エリア -->
+        <div class="p-7">
+            <div class="flex bg-[#f4f1ed] p-1.5 rounded-2xl mb-8">
+                <button id="mode-expense" onclick="changeMode('expense')" class="flex-1 py-3 text-xs font-bold rounded-xl bg-white shadow-sm transition-all" style="color: #b68d8d;">支出をつける</button>
+                <button id="mode-income" onclick="changeMode('income')" class="flex-1 py-3 text-xs font-bold rounded-xl text-[#a89e94] transition-all">収入をいれる</button>
+            </div>
+
+            <div class="mb-8">
+                <div class="flex justify-between items-end mb-4 px-1">
+                    <label class="text-[10px] font-bold text-[#b5ada5] uppercase tracking-widest">Category</label>
+                    <button id="editBtn" onclick="toggleEditMode()" class="text-[10px] text-[#b5ada5] border-b border-[#e5e0da]">項目を編集</button>
+                </div>
+                <div id="categoryGrid" class="grid grid-cols-3 gap-2.5"></div>
+                <div id="addCategoryArea" class="hidden mt-3">
+                    <div class="flex gap-2">
+                        <input type="text" id="newCatInput" placeholder="新しい項目" class="flex-1 p-2 text-xs bg-[#fdfaf8] border border-[#e5e0da] rounded-lg outline-none">
+                        <button onclick="addNewCategory()" class="accent-bg text-white px-4 py-2 rounded-lg text-xs font-bold">追加</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-5">
+                <div class="relative">
+                    <span class="absolute left-5 top-1/2 -translate-y-1/2 text-[#ccc3ba] text-lg font-bold">¥</span>
+                    <input type="number" id="amountInput" placeholder="0" 
+                        class="w-full p-5 pl-10 bg-[#fdfaf8] border-2 border-[#eeebe8] rounded-[2rem] focus:border-gray-400 outline-none text-3xl font-numeric font-bold text-[#3e3a36]">
+                </div>
+                <button id="submitBtn" onclick="addItem()" 
+                    class="accent-bg w-full text-white font-bold py-5 rounded-[2rem] shadow-xl shadow-black/5 transition-all text-sm active:scale-[0.98]">
+                    この内容で記録する
+                </button>
+            </div>
+        </div>
+
+        <!-- 履歴 -->
+        <div class="px-7 pb-12">
+            <h2 class="text-[10px] font-bold text-[#b5ada5] uppercase tracking-[0.2em] mb-5 pl-1 font-numeric italic">Daily Records</h2>
+            <ul id="historyList" class="space-y-3"></ul>
+        </div>
+    </div>
+
+    <script>
+        let kakeiboData = JSON.parse(localStorage.getItem('nordicKakeiboV11')) || {};
+        let categories = JSON.parse(localStorage.getItem('nordicCategoriesV11')) || {
+            income: ["給料", "ボーナス", "その他"],
+            expense: ["食費", "日用品", "光熱費", "カフェ", "美容", "医療", "交際費"]
+        };
+        
+        let currentMode = 'expense';
+        let selectedCategory = "";
+        let isEditMode = false;
+
+        const seasonIcons = { 1: "❄️", 2: "❄️", 3: "🌱", 4: "🌸", 5: "🌿", 6: "☀️", 7: "🏖️", 8: "🌻", 9: "🍂", 10: "🎃", 11: "🍁", 12: "🎄" };
+
+        const encouragementMessages = [
+            "家族のために、いつも本当にありがとう。あなたのやりくりがみんなの笑顔に繋がっています🌿",
+            "今日もお疲れ様。あなたがこうして家計を守ってくれるから、家族は安心して暮らせるんです✨",
+            "家計管理、本当にお疲れ様です。たまには自分にも、ちょっとしたご褒美をあげてくださいね🍰",
+            "あなたのコツコツとした努力、家族はちゃんときづいていますよ。いつもありがとう👏",
+            "家計簿をつける時間も、家族を想う大切な時間ですね。今日も一日お疲れ様でした🏠",
+            "頑張っているあなたへ。今日は温かい飲み物でも飲んで、ゆっくり休んでくださいね🍵",
+            "家族の未来を想うその手が、今日も暮らしを整えています。いつも支えてくれてありがとう🕊️",
+            "家事にお仕事に、毎日フル回転。本当にすごいです！無理しないでくださいね✨",
+            "あなたの「ありがとう」の気持ちが、家計簿の数字にもあたたかく表れていますね💐",
+            "毎日コツコツ。あなたの存在が、家族にとって一番の宝物です。お疲れ様でした🌟"
+        ];
+
+        function init() {
+            const selector = document.getElementById('monthSelector');
+            for (let m = 1; m <= 12; m++) {
+                const key = `2026-${String(m).padStart(2, '0')}`;
+                const opt = document.createElement('option');
+                opt.value = key; opt.textContent = `${m}月の記録`;
+                selector.appendChild(opt);
+            }
+            selector.value = `2026-01`;
+            updateThemeAndData();
+        }
+
+        function showMessage() {
+            const container = document.getElementById('messageOverlay');
+            container.innerHTML = '';
+            
+            const msgBox = document.createElement('div');
+            msgBox.className = "msg-pop bg-white border border-[#eeebe8] px-8 py-6 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.15)] text-sm font-bold text-[#3e3a36]";
+            msgBox.innerText = encouragementMessages[Math.floor(Math.random() * encouragementMessages.length)];
+            
+            container.appendChild(msgBox);
+            
+            setTimeout(() => {
+                if (msgBox.parentNode) msgBox.parentNode.removeChild(msgBox);
+            }, 5000);
+        }
+
+        function updateThemeAndData() {
+            const monthKey = document.getElementById('monthSelector').value;
+            const monthInt = parseInt(monthKey.split('-')[1]);
+            const app = document.getElementById('mainApp');
+            app.className = app.className.replace(/theme-\d+/, `theme-${monthInt}`);
+            document.getElementById('seasonIcon').innerText = seasonIcons[monthInt];
+            renderCategories();
+            loadData();
+        }
+
+        function changeMode(m) {
+            currentMode = m;
+            selectedCategory = "";
+            const isExp = m === 'expense';
+            document.getElementById('mode-expense').className = isExp ? "flex-1 py-3 text-xs font-bold rounded-xl bg-white shadow-sm" : "flex-1 py-3 text-xs font-bold rounded-xl text-[#a89e94]";
+            document.getElementById('mode-income').className = !isExp ? "flex-1 py-3 text-xs font-bold rounded-xl bg-white shadow-sm" : "flex-1 py-3 text-xs font-bold rounded-xl text-[#a89e94]";
+            document.getElementById('mode-expense').style.color = isExp ? "#b68d8d" : "#a89e94";
+            document.getElementById('mode-income').style.color = !isExp ? "#8da399" : "#a89e94";
+            renderCategories();
+        }
+
+        function renderCategories() {
+            const grid = document.getElementById('categoryGrid');
+            grid.innerHTML = '';
+            categories[currentMode].forEach((cat, index) => {
+                const btn = document.createElement('button');
+                btn.className = `category-btn p-3 text-[11px] font-bold rounded-2xl bg-[#fdfaf8] border-2 border-[#e5e0da] transition-all ${selectedCategory === cat ? 'active' : ''}`;
+                btn.innerText = cat;
+                if (isEditMode) {
+                    btn.innerHTML += ' <span class="text-[8px] opacity-30">×</span>';
+                    btn.onclick = () => { categories[currentMode].splice(index, 1); syncCategories(); };
+                } else {
+                    btn.onclick = () => { selectedCategory = cat; renderCategories(); };
+                }
+                grid.appendChild(btn);
+            });
+            if (!selectedCategory && !isEditMode) selectedCategory = categories[currentMode][0];
+        }
+
+        function toggleEditMode() {
+            isEditMode = !isEditMode;
+            document.getElementById('editBtn').innerText = isEditMode ? "完了" : "項目を編集";
+            document.getElementById('addCategoryArea').style.display = isEditMode ? 'block' : 'none';
+            renderCategories();
+        }
+
+        function addNewCategory() {
+            const name = document.getElementById('newCatInput').value.trim();
+            if (name && !categories[currentMode].includes(name)) {
+                categories[currentMode].push(name);
+                syncCategories();
+                document.getElementById('newCatInput').value = '';
+            }
+        }
+
+        function syncCategories() {
+            localStorage.setItem('nordicCategoriesV11', JSON.stringify(categories));
+            renderCategories();
+        }
+
+        function loadData() {
+            const monthKey = document.getElementById('monthSelector').value;
+            document.getElementById('monthLabel').innerText = monthKey.replace('-', '.');
+            const items = kakeiboData[monthKey] || [];
+            const list = document.getElementById('historyList');
+            let tin = 0, tout = 0;
+            list.innerHTML = '';
+            items.forEach((item, index) => {
+                const isInc = item.type === 'income';
+                if (isInc) tin += item.price; else tout += item.price;
+                const li = document.createElement('li');
+                li.className = "flex justify-between items-center p-4 bg-[#fdfaf8] rounded-2xl border border-[#eeebe8]";
+                li.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-1 h-5 rounded-full ${isInc ? 'bg-[#8da399]' : 'bg-[#b68d8d]'}"></div>
+                        <span class="text-xs font-bold">${item.name}</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span class="text-sm font-numeric font-bold ${isInc ? 'text-[#6b7e73]' : 'text-[#b68d8d]'}">
+                            ${isInc ? '+' : '-'}¥${item.price.toLocaleString()}
+                        </span>
+                        <button onclick="removeItem(${index})" class="text-[#e5e0da] hover:text-red-300 transition-colors">×</button>
+                    </div>`;
+                list.appendChild(li);
+            });
+            document.getElementById('totalIn').innerText = `¥${tin.toLocaleString()}`;
+            document.getElementById('totalOut').innerText = `¥${tout.toLocaleString()}`;
+            const balance = tin - tout;
+            document.getElementById('balanceAmount').innerText = `¥${balance.toLocaleString()}`;
+            document.getElementById('balanceAmount').style.color = balance < 0 ? '#ffbaba' : '#ffffff';
+        }
+
+        function addItem() {
+            const monthKey = document.getElementById('monthSelector').value;
+            const amountInput = document.getElementById('amountInput');
+            const amount = parseInt(amountInput.value);
+            if (!amount || amount <= 0 || !selectedCategory) return;
+            if (!kakeiboData[monthKey]) kakeiboData[monthKey] = [];
+            kakeiboData[monthKey].unshift({ id: Date.now(), type: currentMode, name: selectedCategory, price: amount });
+            localStorage.setItem('nordicKakeiboV11', JSON.stringify(kakeiboData));
+            amountInput.value = '';
+            
+            showMessage();
+            loadData();
+        }
+
+        function removeItem(index) {
+            const monthKey = document.getElementById('monthSelector').value;
+            kakeiboData[monthKey].splice(index, 1);
+            localStorage.setItem('nordicKakeiboV11', JSON.stringify(kakeiboData));
+            loadData();
+        }
+
+        window.onload = init;
+    </script>
 </body>
 </html>
+
+
